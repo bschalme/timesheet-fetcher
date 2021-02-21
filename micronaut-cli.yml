@@ -1,0 +1,5 @@
+profile: cli
+defaultPackage: timesheet.fetcher
+---
+testFramework: junit
+sourceLanguage: java
