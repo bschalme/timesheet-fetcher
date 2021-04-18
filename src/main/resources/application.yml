@@ -1,3 +1,13 @@
 micronaut:
   application:
     name: timesheet-fetcher
+  server:
+    context-path: /api/v1
+
+qbd-api:
+  api-url: ${QBD_API_URL}
+  access-token: ${QBD_API_ACCESS_TOKEN}
+
+tsheets:
+  api-version: v1
+  api-token: ${TSHEETS_REST_TOKEN}

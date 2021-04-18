@@ -10,10 +10,10 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class TimesheetFetcherCommandTest {
+class TimesheetFetcherCommandTest {
 
     @Test
-    public void testWithCommandLineOption() throws Exception {
+    void testWithCommandLineOption() throws Exception {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         System.setOut(new PrintStream(baos));
 
@@ -22,7 +22,7 @@ public class TimesheetFetcherCommandTest {
             PicocliRunner.run(TimesheetFetcherCommand.class, ctx, args);
 
             // timesheet-fetcher
-            assertTrue(baos.toString().contains("Someone told me to fetch some timesheets."));
+            assertTrue(baos.toString().contains("Begin fetching timesheets."));
         }
     }
 }
