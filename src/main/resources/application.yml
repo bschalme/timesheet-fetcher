@@ -10,4 +10,4 @@ qbd-api:
 
 tsheets:
   api-version: v1
-  api-token: ${TSHEETS_REST_TOKEN}
+  api-token: ${TSHEETS_ACCESS_TOKEN}

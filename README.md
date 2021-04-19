@@ -6,7 +6,7 @@ Set up the following environment variables:
 
 * QBD_API_URL (Set to the base URL of the API Gateway)
 * QBD_API_ACCESS_TOKEN (For now, Use Postman to obtain an access token)
-* TSHEETS_REST_TOKEN (Get this from the TSheets console)
+* TSHEETS_ACCESS_TOKEN (Get this from the TSheets console)
 
 To build:
 
