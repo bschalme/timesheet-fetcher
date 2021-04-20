@@ -56,6 +56,9 @@ dependencies {
     testImplementation "org.junit.jupiter:junit-jupiter-api"
     testImplementation "io.micronaut.test:micronaut-test-junit5"
     testImplementation "io.micronaut:micronaut-inject-java"
+    testImplementation "org.mockito:mockito-junit-jupiter:3.9.0"
+    testImplementation "org.hamcrest:hamcrest:2.2"
+    testImplementation "commons-io:commons-io:2.8.0"
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine"
 }
 

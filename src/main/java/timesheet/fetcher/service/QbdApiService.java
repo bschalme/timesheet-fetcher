@@ -3,13 +3,11 @@ package timesheet.fetcher.service;
 import static io.micronaut.http.HttpRequest.GET;
 
 import java.net.URI;
-import java.util.Map;
 import java.util.Optional;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.micronaut.http.HttpResponse;
@@ -52,7 +50,7 @@ public class QbdApiService {
             log.info("QBD API is available.");
         } catch (HttpClientResponseException e) {
             HttpResponse<?> errorResponse = e.getResponse();
-            log.error("QBD API is NOT available. HTTP Status Code {} - {}", errorResponse.getStatus().getCode(), errorResponse.getStatus().getReason());
+            log.error("QBD API is NOT available. HTTP Status Code {} {}", errorResponse.getStatus().getCode(), errorResponse.getStatus().getReason());
             @SuppressWarnings("unchecked")
             Optional<String> errorBody = (Optional<String>) errorResponse.getBody();
             if (errorBody.isPresent()) {

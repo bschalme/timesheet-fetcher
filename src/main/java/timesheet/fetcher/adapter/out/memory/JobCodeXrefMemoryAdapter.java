@@ -15,14 +15,15 @@ public class JobCodeXrefMemoryAdapter implements JobCodeXrefPort {
 
     public JobCodeXrefMemoryAdapter() {
         xrefMap = new HashMap<>();
-        xrefMap.put(12345, TSheetsJobCodeXref.builder()
-                .tsheetsJobCodeId(12345)
+        xrefMap.put(58920512, TSheetsJobCodeXref.builder()
+                .tsheetsJobCodeId(58920512)
                 .qbdServiceItemId("80000050-1618687625")
-                .qbdServiceItemFullName("Helping Out")
-                .qbdJobId(null)
+                .qbdServiceItemFullName("Premium rate")
+                .qbdJobId("80000162-1618687386")
+                .qbdJobFullName("The Board:Job One")
                 .build());
-        xrefMap.put(6789, TSheetsJobCodeXref.builder()
-                .tsheetsJobCodeId(6789)
+        xrefMap.put(58920510, TSheetsJobCodeXref.builder()
+                .tsheetsJobCodeId(58920510)
                 .qbdServiceItemId(null)
                 .qbdJobId("80000162-1618687386")
                 .qbdJobFullName("The Board:Job One")
