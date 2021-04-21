@@ -1,4 +1,4 @@
-package timesheet.fetcher.service;
+package timesheet.fetcher.adapter.out.gateway;
 
 import static io.micronaut.http.HttpRequest.GET;
 
@@ -18,10 +18,11 @@ import io.micronaut.http.uri.UriBuilder;
 import io.reactivex.Flowable;
 import lombok.extern.slf4j.Slf4j;
 import timesheet.fetcher.QbdApiConfiguration;
+import timesheet.fetcher.application.port.out.QbdApiPort;
 
 @Singleton
 @Slf4j
-public class QbdApiService {
+public class QbdApiGateway implements QbdApiPort {
     private final RxHttpClient httpClient;
     private final URI uri;
     private final QbdApiConfiguration configuration;
@@ -29,7 +30,7 @@ public class QbdApiService {
     @Inject
     private ObjectMapper objectMapper;
 
-    public QbdApiService(@Client("${qbd-api.api-url}") RxHttpClient httpClient, QbdApiConfiguration configuration) {
+    public QbdApiGateway(@Client("${qbd-api.api-url}") RxHttpClient httpClient, QbdApiConfiguration configuration) {
         super();
         this.httpClient = httpClient;
         this.configuration = configuration;
@@ -37,6 +38,7 @@ public class QbdApiService {
                 .build();
     }
 
+    @Override
     public void checkAvailability() {
         URI currentUserUri = UriBuilder.of(uri)
                 .path("manage")

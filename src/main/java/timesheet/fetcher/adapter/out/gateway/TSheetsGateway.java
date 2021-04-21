@@ -1,4 +1,4 @@
-package timesheet.fetcher.service;
+package timesheet.fetcher.adapter.out.gateway;
 
 import static io.micronaut.http.HttpRequest.GET;
 
@@ -20,10 +20,11 @@ import io.micronaut.http.uri.UriBuilder;
 import io.reactivex.Flowable;
 import lombok.extern.slf4j.Slf4j;
 import timesheet.fetcher.TsheetsConfiguration;
+import timesheet.fetcher.application.port.out.TSheetsPort;
 
 @Singleton
 @Slf4j
-public class TSheetsService {
+public class TSheetsGateway implements TSheetsPort {
 
     private final RxHttpClient httpClient;
     private final URI uri;
@@ -32,7 +33,7 @@ public class TSheetsService {
     @Inject
     private ObjectMapper objectMapper;
 
-    public TSheetsService(@Client(TsheetsConfiguration.TSHEETS_API_URL) RxHttpClient httpClient, TsheetsConfiguration configuration) {
+    public TSheetsGateway(@Client(TsheetsConfiguration.TSHEETS_API_URL) RxHttpClient httpClient, TsheetsConfiguration configuration) {
         super();
         this.httpClient = httpClient;
         this.uri = UriBuilder.of("/api")
@@ -41,6 +42,7 @@ public class TSheetsService {
         this.configuration = configuration;
     }
 
+    @Override
     @SuppressWarnings("unchecked")
     public void checkAvailability() {
         URI currentUserUri = UriBuilder.of(uri)
@@ -69,6 +71,7 @@ public class TSheetsService {
         }
     }
 
+    @Override
     @SuppressWarnings("unchecked")
     public String retrieveTimesheets(Integer id, String startDate, String endDate) {
         log.debug("id = {}, startDate = {}, endDate = {}", id, startDate, endDate);

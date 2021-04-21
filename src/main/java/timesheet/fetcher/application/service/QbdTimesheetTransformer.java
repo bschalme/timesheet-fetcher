@@ -1,22 +1,19 @@
 package timesheet.fetcher.application.service;
 
+import static java.lang.String.format;
+
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
 
 import javax.inject.Singleton;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.ObjectReader;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +22,7 @@ import timesheet.fetcher.application.port.out.UserXrefPort;
 import timesheet.fetcher.domain.QbdTimesheetEntries;
 import timesheet.fetcher.domain.QbdTimesheetEntry;
 import timesheet.fetcher.domain.TSheetsJobCodeXref;
+import timesheet.fetcher.exception.MissingJobCodeXrefException;
 
 @Singleton
 @Slf4j
@@ -46,6 +44,10 @@ public class QbdTimesheetTransformer {
                 String timesheetId = timesheetIds.next();
                 JsonNode timesheet = timesheets.get(timesheetId);
                 TSheetsJobCodeXref tsheetsJobCodeXref = jobCodeXrefPort.getXref(timesheet.get("jobcode_id").asInt());
+                if (tsheetsJobCodeXref == null) {
+                    throw new MissingJobCodeXrefException(format("No JobCodeXref found for TSheets jobcode_id '%d'",
+                            timesheet.get("jobcode_id").asInt()));
+                }
                 ZonedDateTime startDateTime = ZonedDateTime.parse(timesheet.get("start").asText());
                 ZonedDateTime endDateTime = ZonedDateTime.parse(timesheet.get("end").asText());
                 entries.add(QbdTimesheetEntry.builder()

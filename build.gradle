@@ -59,6 +59,7 @@ dependencies {
     testImplementation "org.mockito:mockito-junit-jupiter:3.9.0"
     testImplementation "org.hamcrest:hamcrest:2.2"
     testImplementation "commons-io:commons-io:2.8.0"
+    testImplementation "com.fasterxml.jackson.datatype:jackson-datatype-jsr310"
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine"
 }
 

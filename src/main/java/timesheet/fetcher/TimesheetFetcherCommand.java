@@ -15,8 +15,10 @@ import io.micronaut.configuration.picocli.PicocliRunner;
 import lombok.extern.slf4j.Slf4j;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
-import timesheet.fetcher.service.QbdApiService;
-import timesheet.fetcher.service.TSheetsService;
+import timesheet.fetcher.application.port.out.QbdApiPort;
+import timesheet.fetcher.application.port.out.TSheetsPort;
+import timesheet.fetcher.application.service.QbdTimesheetTransformer;
+import timesheet.fetcher.domain.QbdTimesheetEntries;
 
 @Command(name = "timesheet-fetcher", description = "...",
         mixinStandardHelpOptions = true)
@@ -26,11 +28,17 @@ public class TimesheetFetcherCommand implements Runnable {
     @Option(names = {"-v", "--verbose"}, description = "...")
     boolean verbose;
 
-    @Inject
-    private TSheetsService tSheetsService;
+    @Option(names = {"-d", "--dry-run"}, description = "Do not update QBD API")
+    boolean dryRun;
 
     @Inject
-    private QbdApiService qbdApiService;
+    private TSheetsPort tsheetsPort;
+
+    @Inject
+    private QbdApiPort qbdApiService;
+
+    @Inject
+    private QbdTimesheetTransformer transformer;
 
     @Inject
     private ObjectMapper objectMapper;
@@ -45,10 +53,10 @@ public class TimesheetFetcherCommand implements Runnable {
         if (verbose) {
             log.info("Begin fetching timesheets.");
         }
-        tSheetsService.checkAvailability();
+        tsheetsPort.checkAvailability();
         qbdApiService.checkAvailability();
 //        String jsonString = tSheetsService.retrieveTimesheets(186512, "2020-06-01", "2020-06-01");
-        String jsonString = tSheetsService.retrieveTimesheets(null, "2020-06-01", "2020-06-01");
+        String jsonString = tsheetsPort.retrieveTimesheets(null, "2021-04-19", "2021-04-19");
         try {
             ObjectReader objectReader = objectMapper.readerForMapOf(Object.class);
             Map<String, Object> jsonMap = objectReader.readValue(jsonString);
@@ -62,6 +70,11 @@ public class TimesheetFetcherCommand implements Runnable {
             }
             log.info("Retrieved {} timesheet entries for a Duration of {} from TSheets.", entrySet.size(),
                     Duration.ofSeconds(durationInSeconds));
+            QbdTimesheetEntries qbdApiBody = transformer.transform(jsonString);
+            if (dryRun) {
+                log.info("This would be the call to QBD API:{}{}", System.getProperty("line.separator"),
+                        objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(qbdApiBody));
+            }
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e.getMessage(), e);
         }

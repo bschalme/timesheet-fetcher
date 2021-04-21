@@ -6,6 +6,7 @@ import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
@@ -29,6 +30,7 @@ import timesheet.fetcher.domain.QbdTimesheetEntries;
 import timesheet.fetcher.domain.QbdTimesheetEntry;
 import timesheet.fetcher.domain.TSheetsJobCodeXref;
 import timesheet.fetcher.domain.TSheetsUserXref;
+import timesheet.fetcher.exception.MissingJobCodeXrefException;
 
 @ExtendWith(MockitoExtension.class)
 class QbdTimesheetTransformerUnitTest {
@@ -76,5 +78,18 @@ class QbdTimesheetTransformerUnitTest {
         assertThat("durationInMinutes;", entry.getDurationInMinutes(), is(60));
         assertThat("notes;", entry.getNotes(), is("::Onboarding and overview with Capt. Barbossa."));
         assertThat("billableStatus;", entry.getBillableStatus(), is("Billable"));
+    }
+
+    @Test
+    void missingJobCodeXref() throws Exception {
+        // Given:
+        String tsheetsTimesheets = readFileToString(new File("src/test/resources/TSheetsTimesheets.json"), UTF_8);
+        when(mockJobCodeXrefPort.getXref(eq(58920512))).thenReturn(null);
+
+        // Then:
+        Exception exception = assertThrows(
+                MissingJobCodeXrefException.class, 
+                () -> transformer.transform(tsheetsTimesheets));
+        assertThat(exception.getMessage(), is("No JobCodeXref found for TSheets jobcode_id '58920512'"));
     }
 }
