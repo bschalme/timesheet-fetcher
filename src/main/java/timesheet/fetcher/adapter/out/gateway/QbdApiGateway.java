@@ -1,6 +1,7 @@
 package timesheet.fetcher.adapter.out.gateway;
 
 import static io.micronaut.http.HttpRequest.GET;
+import static io.micronaut.http.HttpRequest.POST;
 
 import java.net.URI;
 import java.util.Optional;
@@ -19,6 +20,7 @@ import io.reactivex.Flowable;
 import lombok.extern.slf4j.Slf4j;
 import timesheet.fetcher.QbdApiConfiguration;
 import timesheet.fetcher.application.port.out.QbdApiPort;
+import timesheet.fetcher.domain.QbdTimesheetEntries;
 
 @Singleton
 @Slf4j
@@ -53,6 +55,35 @@ public class QbdApiGateway implements QbdApiPort {
         } catch (HttpClientResponseException e) {
             HttpResponse<?> errorResponse = e.getResponse();
             log.error("QBD API is NOT available. HTTP Status Code {} {}", errorResponse.getStatus().getCode(), errorResponse.getStatus().getReason());
+            @SuppressWarnings("unchecked")
+            Optional<String> errorBody = (Optional<String>) errorResponse.getBody();
+            if (errorBody.isPresent()) {
+                log.error(errorBody.get());
+            }
+            throw e;
+        }
+    }
+
+    @Override
+    public void enterTimesheets(QbdTimesheetEntries timesheetEntries) {
+        URI timesheetsUri = UriBuilder.of(uri)
+                .path("timesheets")
+                .build();
+        log.info("Doing a POST to QBD API to create timesheet entries.");
+        Flowable<HttpResponse<String>> call = httpClient.exchange(
+                POST(timesheetsUri, timesheetEntries)
+                .bearerAuth(configuration.getAccessToken()), 
+                String.class 
+        );
+        try {
+            HttpResponse<String> response = call.blockingFirst();
+            Optional<String> bodyOptional = response.getBody();
+            if (bodyOptional.isPresent()) {
+                log.info(bodyOptional.get());
+            }
+        } catch (HttpClientResponseException e) {
+            HttpResponse<?> errorResponse = e.getResponse();
+            log.error("Timesheet entry failed. HTTP Status Code {} {}", errorResponse.getStatus().getCode(), errorResponse.getStatus().getReason());
             @SuppressWarnings("unchecked")
             Optional<String> errorBody = (Optional<String>) errorResponse.getBody();
             if (errorBody.isPresent()) {
