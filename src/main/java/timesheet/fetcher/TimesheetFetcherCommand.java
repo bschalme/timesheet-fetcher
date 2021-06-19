@@ -18,6 +18,7 @@ import io.micronaut.configuration.picocli.PicocliRunner;
 import lombok.extern.slf4j.Slf4j;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
+import timesheet.fetcher.application.port.out.ConfigPort;
 import timesheet.fetcher.application.port.out.QbdApiPort;
 import timesheet.fetcher.application.port.out.TSheetsPort;
 import timesheet.fetcher.application.service.QbdTimesheetTransformer;
@@ -34,10 +35,10 @@ public class TimesheetFetcherCommand implements Runnable {
     @Option(names = {"-d", "--dry-run"}, description = "Do not update QBD API")
     boolean dryRun;
 
-    @Option(names = {"-f", "--from-date"}, description = "From this date", required = true)
+    @Option(names = {"-f", "--from-date"}, description = "From this date", required = false)
     LocalDate fromDate;
 
-    @Option(names = {"-t", "--to-date"}, description = "Up to and including this date", required = true)
+    @Option(names = {"-t", "--to-date"}, description = "Up to and including this date", required = false)
     LocalDate toDate;
 
     @Inject
@@ -51,6 +52,9 @@ public class TimesheetFetcherCommand implements Runnable {
 
     @Inject
     private ObjectMapper objectMapper;
+
+    @Inject
+    private ConfigPort configPort;
 
     public static void main(String[] args) throws Exception {
         PicocliRunner.run(TimesheetFetcherCommand.class, args);
@@ -67,6 +71,9 @@ public class TimesheetFetcherCommand implements Runnable {
         }
         tsheetsPort.checkAvailability();
         qbdApiPort.checkAvailability();
+        LocalDate timesheetLastFetchedDate = LocalDate.parse(configPort.getTimesheetLastFetchedDate(), ISO_DATE);
+        fromDate = timesheetLastFetchedDate.plusDays(1);
+        toDate = LocalDate.now().minusDays(1);
 //        String jsonString = tSheetsService.retrieveTimesheets(186512, "2020-06-01", "2020-06-01");
         String jsonString = tsheetsPort.retrieveTimesheets(null, fromDate.format(ISO_DATE), toDate.format(ISO_DATE));
         try {
@@ -89,6 +96,7 @@ public class TimesheetFetcherCommand implements Runnable {
             } else {
                 qbdApiPort.enterTimesheets(qbdApiBody);
                 log.info("Created {} timesheet entries in QBD API", entrySet.size());
+                configPort.updateTimesheetLastFetchedDate(toDate);
             }
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e.getMessage(), e);

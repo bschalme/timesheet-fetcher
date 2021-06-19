@@ -18,5 +18,8 @@
         <appender-ref ref="CONSOLE" />
     </root>
     <logger name="io.micronaut.http.client" level="INFO"/>
+    <logger name="timesheet.fetcher.adapter.out.AwsParameterStoreConfig" level="DEBUG" additivity="false">
+        <appender-ref ref="CONSOLE" />
+    </logger>
 
 </configuration>
