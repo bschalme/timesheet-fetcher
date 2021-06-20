@@ -74,27 +74,29 @@ public class TimesheetFetcherCommand implements Runnable {
         LocalDate yesterday = today.minusDays(1);
         if (timesheetLastFetchedDate.isBefore(yesterday)) {
             LocalDate fromDate = timesheetLastFetchedDate.plusDays(1);
-            LocalDate toDate = yesterday;
-            String jsonString = tsheetsPort.retrieveTimesheets(null, fromDate.format(ISO_DATE), toDate.format(ISO_DATE));
+            String jsonString = tsheetsPort.retrieveTimesheets(null, fromDate.format(ISO_DATE),
+                    yesterday.format(ISO_DATE));
             Map<String, Object> jsonMap = xformToJsonMap(jsonString);
             if (hasTimesheets(jsonMap)) {
-                logRetrievedTimesheets(jsonMap, fromDate, toDate);
+                logRetrievedTimesheets(jsonMap, fromDate, yesterday);
                 QbdTimesheetEntries qbdApiBody = transformer.transform(jsonString);
                 if (dryRun) {
                     log.info("This would be the call to QBD API:{}{}", System.getProperty("line.separator"),
                             formatQbdTimesheetEntries(qbdApiBody));
                 } else {
                     qbdApiPort.enterTimesheets(qbdApiBody);
-                    configPort.updateTimesheetLastFetchedDate(toDate);
+                    configPort.updateTimesheetLastFetchedDate(yesterday);
                 }
             } else {
-                log.info("No timesheet entries retrieved between {} and {}", fromDate.format(simpleDisplayFormatter), toDate.format(simpleDisplayFormatter));
+                log.info("No timesheet entries retrieved between {} and {}", fromDate.format(simpleDisplayFormatter),
+                        yesterday.format(simpleDisplayFormatter));
                 if (!dryRun) {
-                    configPort.updateTimesheetLastFetchedDate(toDate);
+                    configPort.updateTimesheetLastFetchedDate(yesterday);
                 }
             }
         } else {
-            log.debug("Today is {} and timesheet last fetched date is {}", today.format(ISO_DATE), timesheetLastFetchedDate.format(ISO_DATE));
+            log.debug("Today is {} and timesheet last fetched date is {}", today.format(ISO_DATE),
+                    timesheetLastFetchedDate.format(ISO_DATE));
             log.info("Timesheets have already been fetched. Try again tomorrow.");
         }
     }
