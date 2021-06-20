@@ -80,6 +80,7 @@ public class QbdApiGateway implements QbdApiPort {
             Optional<String> bodyOptional = response.getBody();
             if (bodyOptional.isPresent()) {
                 log.info(bodyOptional.get());
+                log.info("Created {} timesheet entries in QBD API", timesheetEntries.getEntries().size());
             }
         } catch (HttpClientResponseException e) {
             HttpResponse<?> errorResponse = e.getResponse();

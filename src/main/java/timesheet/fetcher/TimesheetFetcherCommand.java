@@ -37,12 +37,6 @@ public class TimesheetFetcherCommand implements Runnable {
     @Option(names = {"-d", "--dry-run"}, description = "Do not update QBD API")
     boolean dryRun;
 
-    @Option(names = {"-f", "--from-date"}, description = "From this date", required = false)
-    LocalDate fromDate;
-
-    @Option(names = {"-t", "--to-date"}, description = "Up to and including this date", required = false)
-    LocalDate toDate;
-
     @Inject
     private TSheetsPort tsheetsPort;
 
@@ -58,7 +52,7 @@ public class TimesheetFetcherCommand implements Runnable {
     @Inject
     private ConfigPort configPort;
 
-    private DateTimeFormatter simpleDisplayFormatter = DateTimeFormatter.ofPattern("EEE, MMM d");
+    private DateTimeFormatter simpleDisplayFormatter = DateTimeFormatter.ofPattern("EEEE, MMMM d");
 
     public static void main(String[] args) throws Exception {
         PicocliRunner.run(TimesheetFetcherCommand.class, args);
@@ -79,48 +73,68 @@ public class TimesheetFetcherCommand implements Runnable {
         LocalDate today = LocalDate.now();
         LocalDate yesterday = today.minusDays(1);
         if (timesheetLastFetchedDate.isBefore(yesterday)) {
-            fromDate = timesheetLastFetchedDate.plusDays(1);
-            toDate = LocalDate.now().minusDays(1);
+            LocalDate fromDate = timesheetLastFetchedDate.plusDays(1);
+            LocalDate toDate = yesterday;
             String jsonString = tsheetsPort.retrieveTimesheets(null, fromDate.format(ISO_DATE), toDate.format(ISO_DATE));
-            try {
-                ObjectReader objectReader = objectMapper.readerForMapOf(Object.class);
-                Map<String, Object> jsonMap = objectReader.readValue(jsonString);
-                Map<String, Object> results = (Map<String, Object>) jsonMap.get("results");
-                boolean haveTimesheets = false;
-                if (results.get("timesheets") instanceof Map) {
-                    haveTimesheets = true;
-                }
-                if (haveTimesheets) {
-                    Map<String, Object> timesheets = (Map<String, Object>) results.get("timesheets");
-                    Set<Entry<String, Object>> entrySet = timesheets.entrySet();
-                    int durationInSeconds = 0;
-                    for (Entry<String, Object> timesheetEntry : entrySet) {
-                        Map<String, Object> timesheetData = (Map<String, Object>) timesheetEntry.getValue();
-                        durationInSeconds += (Integer) timesheetData.get("duration");
-                    }
-                    log.info("Retrieved {} timesheet entries between {} and {} for a Duration of {} from TSheets.", entrySet.size(),
-                            fromDate.format(simpleDisplayFormatter), toDate.format(simpleDisplayFormatter), Duration.ofSeconds(durationInSeconds));
-                    QbdTimesheetEntries qbdApiBody = transformer.transform(jsonString);
-                    if (dryRun) {
-                        log.info("This would be the call to QBD API:{}{}", System.getProperty("line.separator"),
-                                objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(qbdApiBody));
-                    } else {
-                        qbdApiPort.enterTimesheets(qbdApiBody);
-                        log.info("Created {} timesheet entries in QBD API", entrySet.size());
-                        configPort.updateTimesheetLastFetchedDate(toDate);
-                    }
+            Map<String, Object> jsonMap = xformToJsonMap(jsonString);
+            if (hasTimesheets(jsonMap)) {
+                logRetrievedTimesheets(jsonMap, fromDate, toDate);
+                QbdTimesheetEntries qbdApiBody = transformer.transform(jsonString);
+                if (dryRun) {
+                    log.info("This would be the call to QBD API:{}{}", System.getProperty("line.separator"),
+                            formatQbdTimesheetEntries(qbdApiBody));
                 } else {
-                    log.info("No timesheet entries retrieved between {} and {}", fromDate.format(simpleDisplayFormatter), toDate.format(simpleDisplayFormatter));
-                    if (!dryRun) {
-                        configPort.updateTimesheetLastFetchedDate(toDate);
-                    }
+                    qbdApiPort.enterTimesheets(qbdApiBody);
+                    configPort.updateTimesheetLastFetchedDate(toDate);
                 }
-            } catch (JsonProcessingException e) {
-                throw new RuntimeException(e.getMessage(), e);
+            } else {
+                log.info("No timesheet entries retrieved between {} and {}", fromDate.format(simpleDisplayFormatter), toDate.format(simpleDisplayFormatter));
+                if (!dryRun) {
+                    configPort.updateTimesheetLastFetchedDate(toDate);
+                }
             }
         } else {
             log.debug("Today is {} and timesheet last fetched date is {}", today.format(ISO_DATE), timesheetLastFetchedDate.format(ISO_DATE));
             log.info("Timesheets have already been fetched. Try again tomorrow.");
         }
+    }
+
+    private Map<String, Object> xformToJsonMap(String jsonString) {
+        ObjectReader objectReader = objectMapper.readerForMapOf(Object.class);
+        try {
+            return objectReader.readValue(jsonString);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e.getMessage(), e);
+        }
+    }
+
+    private boolean hasTimesheets(Map<String, Object> jsonMap) {
+        Map<String, Object> results = (Map<String, Object>) jsonMap.get("results");
+        return results.get("timesheets") instanceof Map;
+    }
+
+    private void logRetrievedTimesheets(Map<String, Object> jsonMap, LocalDate fromDate, LocalDate toDate) {
+        Map<String, Object> results = (Map<String, Object>) jsonMap.get("results");
+        Map<String, Object> timesheets = (Map<String, Object>) results.get("timesheets");
+        Set<Entry<String, Object>> entrySet = timesheets.entrySet();
+        int durationInSeconds = 0;
+        for (Entry<String, Object> timesheetEntry : entrySet) {
+            Map<String, Object> timesheetData = (Map<String, Object>) timesheetEntry.getValue();
+            durationInSeconds += (Integer) timesheetData.get("duration");
+        }
+        log.info("Retrieved {} timesheet entries between {} and {} for a Duration of {} from TSheets.", entrySet.size(),
+                fromDate.format(simpleDisplayFormatter), toDate.format(simpleDisplayFormatter), Duration.ofSeconds(durationInSeconds));
+    }
+
+    private String formatQbdTimesheetEntries(QbdTimesheetEntries entries) {
+        try {
+            return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(entries);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e.getMessage(), e);
+        }
+    }
+
+    private void processTimesheets(Map<String, Object> results) {
+
     }
 }
