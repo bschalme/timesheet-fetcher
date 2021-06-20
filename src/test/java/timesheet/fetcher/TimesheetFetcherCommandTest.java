@@ -38,8 +38,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class TimesheetFetcherCommandTest {
@@ -87,6 +86,32 @@ class TimesheetFetcherCommandTest {
     }
 
     @Test
+    void dryRun() throws Exception {
+        // Given:
+        LocalDate today = LocalDate.now();
+        LocalDate yesterday = today.minusDays(1);
+        LocalDate threeDaysAgo = today.minusDays(3);
+        LocalDate fourDaysAgo = today.minusDays(4);
+        when(mockConfigPort.getTimesheetLastFetchedDate()).thenReturn(fourDaysAgo.format(ISO_DATE));
+        when(mockTsheetsPort.retrieveTimesheets(isNull(), isA(String.class), isA(String.class)))
+                .thenReturn(readFileToString(new File("src/test/resources/TSheetsTimesheets.json"), UTF_8));
+        when(mockTransformer.transform(isA(String.class))).thenReturn(new QbdTimesheetEntries(List.of(QbdTimesheetEntry.builder()
+                .build())));
+
+        // When:
+        fetcherCommand.dryRun = true;
+        fetcherCommand.run();
+
+        // Then:
+        verify(mockQbdApiPort).checkAvailability();
+        verify(mockTsheetsPort).retrieveTimesheets(isNull(), fromDateCaptor.capture(), toDateCaptor.capture());
+        assertThat(fromDateCaptor.getValue(), is(threeDaysAgo.format(ISO_DATE)));
+        assertThat(toDateCaptor.getValue(), is(yesterday.format(ISO_DATE)));
+        verify(mockQbdApiPort, never()).enterTimesheets(isA(QbdTimesheetEntries.class));
+        verify(mockConfigPort, never()).updateTimesheetLastFetchedDate(newDateArgumentCaptor.capture());
+    }
+
+    @Test
     void lastFetchedFourDaysAgo() throws Exception {
         // Given:
         LocalDate today = LocalDate.now();
@@ -108,6 +133,47 @@ class TimesheetFetcherCommandTest {
         assertThat(fromDateCaptor.getValue(), is(threeDaysAgo.format(ISO_DATE)));
         assertThat(toDateCaptor.getValue(), is(yesterday.format(ISO_DATE)));
         verify(mockQbdApiPort).enterTimesheets(isA(QbdTimesheetEntries.class));
+        verify(mockConfigPort).updateTimesheetLastFetchedDate(newDateArgumentCaptor.capture());
+        assertThat(newDateArgumentCaptor.getValue(), is(yesterday));
+    }
+
+    @Test
+    void lastFetchedYesterday() throws Exception {
+        // Given:
+        LocalDate today = LocalDate.now();
+        LocalDate yesterday = today.minusDays(1);
+        when(mockConfigPort.getTimesheetLastFetchedDate()).thenReturn(yesterday.format(ISO_DATE));
+
+        // When:
+        fetcherCommand.run();
+
+        // Then:
+        verify(mockQbdApiPort).checkAvailability();
+        verify(mockTsheetsPort, never()).retrieveTimesheets(isNull(), fromDateCaptor.capture(), toDateCaptor.capture());
+        verify(mockQbdApiPort, never()).enterTimesheets(isA(QbdTimesheetEntries.class));
+        verify(mockConfigPort, never()).updateTimesheetLastFetchedDate(newDateArgumentCaptor.capture());
+    }
+
+    @Test
+    void noTimesheetsRetrieved() throws Exception {
+        // Given:
+        LocalDate today = LocalDate.now();
+        LocalDate yesterday = today.minusDays(1);
+        LocalDate threeDaysAgo = today.minusDays(3);
+        LocalDate fourDaysAgo = today.minusDays(4);
+        when(mockConfigPort.getTimesheetLastFetchedDate()).thenReturn(fourDaysAgo.format(ISO_DATE));
+        when(mockTsheetsPort.retrieveTimesheets(isNull(), isA(String.class), isA(String.class)))
+                .thenReturn(readFileToString(new File("src/test/resources/EmptyTSheets.json"), UTF_8));
+
+        // When:
+        fetcherCommand.run();
+
+        // Then:
+        verify(mockQbdApiPort).checkAvailability();
+        verify(mockTsheetsPort).retrieveTimesheets(isNull(), fromDateCaptor.capture(), toDateCaptor.capture());
+        assertThat(fromDateCaptor.getValue(), is(threeDaysAgo.format(ISO_DATE)));
+        assertThat(toDateCaptor.getValue(), is(yesterday.format(ISO_DATE)));
+        verify(mockQbdApiPort, never()).enterTimesheets(isA(QbdTimesheetEntries.class));
         verify(mockConfigPort).updateTimesheetLastFetchedDate(newDateArgumentCaptor.capture());
         assertThat(newDateArgumentCaptor.getValue(), is(yesterday));
     }

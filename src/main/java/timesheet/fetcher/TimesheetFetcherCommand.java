@@ -4,6 +4,8 @@ import static java.time.format.DateTimeFormatter.ISO_DATE;
 
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -56,6 +58,8 @@ public class TimesheetFetcherCommand implements Runnable {
     @Inject
     private ConfigPort configPort;
 
+    private DateTimeFormatter simpleDisplayFormatter = DateTimeFormatter.ofPattern("EEE, MMM d");
+
     public static void main(String[] args) throws Exception {
         PicocliRunner.run(TimesheetFetcherCommand.class, args);
     }
@@ -72,34 +76,51 @@ public class TimesheetFetcherCommand implements Runnable {
         tsheetsPort.checkAvailability();
         qbdApiPort.checkAvailability();
         LocalDate timesheetLastFetchedDate = LocalDate.parse(configPort.getTimesheetLastFetchedDate(), ISO_DATE);
-        fromDate = timesheetLastFetchedDate.plusDays(1);
-        toDate = LocalDate.now().minusDays(1);
-//        String jsonString = tSheetsService.retrieveTimesheets(186512, "2020-06-01", "2020-06-01");
-        String jsonString = tsheetsPort.retrieveTimesheets(null, fromDate.format(ISO_DATE), toDate.format(ISO_DATE));
-        try {
-            ObjectReader objectReader = objectMapper.readerForMapOf(Object.class);
-            Map<String, Object> jsonMap = objectReader.readValue(jsonString);
-            Map<String, Object> results = (Map<String, Object>) jsonMap.get("results");
-            Map<String, Object> timesheets = (Map<String, Object>) results.get("timesheets");
-            Set<Entry<String, Object>> entrySet = timesheets.entrySet();
-            int durationInSeconds = 0;
-            for (Entry<String, Object> timesheetEntry: entrySet) {
-                Map<String, Object> timesheetData = (Map<String, Object>) timesheetEntry.getValue();
-                durationInSeconds += (Integer) timesheetData.get("duration");
+        LocalDate today = LocalDate.now();
+        LocalDate yesterday = today.minusDays(1);
+        if (timesheetLastFetchedDate.isBefore(yesterday)) {
+            fromDate = timesheetLastFetchedDate.plusDays(1);
+            toDate = LocalDate.now().minusDays(1);
+            String jsonString = tsheetsPort.retrieveTimesheets(null, fromDate.format(ISO_DATE), toDate.format(ISO_DATE));
+            try {
+                ObjectReader objectReader = objectMapper.readerForMapOf(Object.class);
+                Map<String, Object> jsonMap = objectReader.readValue(jsonString);
+                Map<String, Object> results = (Map<String, Object>) jsonMap.get("results");
+                boolean haveTimesheets = false;
+                if (results.get("timesheets") instanceof Map) {
+                    haveTimesheets = true;
+                }
+                if (haveTimesheets) {
+                    Map<String, Object> timesheets = (Map<String, Object>) results.get("timesheets");
+                    Set<Entry<String, Object>> entrySet = timesheets.entrySet();
+                    int durationInSeconds = 0;
+                    for (Entry<String, Object> timesheetEntry : entrySet) {
+                        Map<String, Object> timesheetData = (Map<String, Object>) timesheetEntry.getValue();
+                        durationInSeconds += (Integer) timesheetData.get("duration");
+                    }
+                    log.info("Retrieved {} timesheet entries between {} and {} for a Duration of {} from TSheets.", entrySet.size(),
+                            fromDate.format(simpleDisplayFormatter), toDate.format(simpleDisplayFormatter), Duration.ofSeconds(durationInSeconds));
+                    QbdTimesheetEntries qbdApiBody = transformer.transform(jsonString);
+                    if (dryRun) {
+                        log.info("This would be the call to QBD API:{}{}", System.getProperty("line.separator"),
+                                objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(qbdApiBody));
+                    } else {
+                        qbdApiPort.enterTimesheets(qbdApiBody);
+                        log.info("Created {} timesheet entries in QBD API", entrySet.size());
+                        configPort.updateTimesheetLastFetchedDate(toDate);
+                    }
+                } else {
+                    log.info("No timesheet entries retrieved between {} and {}", fromDate.format(simpleDisplayFormatter), toDate.format(simpleDisplayFormatter));
+                    if (!dryRun) {
+                        configPort.updateTimesheetLastFetchedDate(toDate);
+                    }
+                }
+            } catch (JsonProcessingException e) {
+                throw new RuntimeException(e.getMessage(), e);
             }
-            log.info("Retrieved {} timesheet entries for a Duration of {} from TSheets.", entrySet.size(),
-                    Duration.ofSeconds(durationInSeconds));
-            QbdTimesheetEntries qbdApiBody = transformer.transform(jsonString);
-            if (dryRun) {
-                log.info("This would be the call to QBD API:{}{}", System.getProperty("line.separator"),
-                        objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(qbdApiBody));
-            } else {
-                qbdApiPort.enterTimesheets(qbdApiBody);
-                log.info("Created {} timesheet entries in QBD API", entrySet.size());
-                configPort.updateTimesheetLastFetchedDate(toDate);
-            }
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException(e.getMessage(), e);
+        } else {
+            log.debug("Today is {} and timesheet last fetched date is {}", today.format(ISO_DATE), timesheetLastFetchedDate.format(ISO_DATE));
+            log.info("Timesheets have already been fetched. Try again tomorrow.");
         }
     }
 }
