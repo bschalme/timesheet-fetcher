@@ -2,13 +2,10 @@ package timesheet.fetcher;
 
 import static java.time.format.DateTimeFormatter.ISO_DATE;
 
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
+import java.util.stream.Stream;
 
 import javax.inject.Inject;
 
@@ -17,6 +14,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
 
 import io.micronaut.configuration.picocli.PicocliRunner;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -60,7 +58,6 @@ public class TimesheetFetcherCommand implements Runnable {
 
     @SuppressWarnings("unchecked")
     public void run() {
-        // business logic here
         if (verbose) {
             log.info("Begin fetching timesheets.");
         }
@@ -78,7 +75,6 @@ public class TimesheetFetcherCommand implements Runnable {
                     yesterday.format(ISO_DATE));
             Map<String, Object> jsonMap = xformToJsonMap(jsonString);
             if (hasTimesheets(jsonMap)) {
-                logRetrievedTimesheets(jsonMap, fromDate, yesterday);
                 QbdTimesheetEntries qbdApiBody = transformer.transform(jsonString);
                 if (dryRun) {
                     log.info("This would be the call to QBD API:{}{}", System.getProperty("line.separator"),
@@ -101,13 +97,55 @@ public class TimesheetFetcherCommand implements Runnable {
         }
     }
 
+    public void run2() {
+        if (verbose) {
+            log.info("Begin fetching timesheets.");
+        }
+        if (dryRun) {
+            log.info("This is a dry run.");
+        }
+        boolean wetRun = !dryRun;
+        tsheetsPort.checkAvailability();
+        qbdApiPort.checkAvailability();
+        LocalDate today = LocalDate.now();
+        LocalDate yesterday = today.minusDays(1);
+        Stream.of(LocalDate.parse(configPort.getTimesheetLastFetchedDate(), ISO_DATE))
+                .filter(timesheetLastFetchedDate -> {
+                    if (timesheetLastFetchedDate.isBefore(yesterday)) {
+                        return true;
+                    } else {
+                        log.debug("Today is {} and timesheet last fetched date is {}", today.format(ISO_DATE),
+                                timesheetLastFetchedDate.format(ISO_DATE));
+                        log.info("Timesheets have already been fetched. Try again tomorrow.");
+                        return false;
+                    }
+                })
+                .map(timesheetLastFetchedDate -> {
+                    LocalDate fromDate = timesheetLastFetchedDate.plusDays(1);
+                    return xformToJsonMap(tsheetsPort.retrieveTimesheets(null, fromDate.format(ISO_DATE),
+                            yesterday.format(ISO_DATE)));
+                })
+                .map(jsonMap -> {
+                    if (dryRun) {
+                        return jsonMap;
+                    }
+                    configPort.updateTimesheetLastFetchedDate(yesterday);
+                    return jsonMap;
+                })
+                .filter(this::hasTimesheets)
+                .map(this::xformToQbdTimesheetEntries)
+                .forEach(qbdTimesheetEntries -> {
+                    if (dryRun) {
+                        return;
+                    }
+                    qbdApiPort.enterTimesheets(qbdTimesheetEntries);
+                });
+    }
+
+    @SneakyThrows(JsonProcessingException.class)
     private Map<String, Object> xformToJsonMap(String jsonString) {
         ObjectReader objectReader = objectMapper.readerForMapOf(Object.class);
-        try {
-            return objectReader.readValue(jsonString);
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException(e.getMessage(), e);
-        }
+        return objectReader.readValue(jsonString);
     }
 
     private boolean hasTimesheets(Map<String, Object> jsonMap) {
@@ -115,28 +153,13 @@ public class TimesheetFetcherCommand implements Runnable {
         return results.get("timesheets") instanceof Map;
     }
 
-    private void logRetrievedTimesheets(Map<String, Object> jsonMap, LocalDate fromDate, LocalDate toDate) {
-        Map<String, Object> results = (Map<String, Object>) jsonMap.get("results");
-        Map<String, Object> timesheets = (Map<String, Object>) results.get("timesheets");
-        Set<Entry<String, Object>> entrySet = timesheets.entrySet();
-        int durationInSeconds = 0;
-        for (Entry<String, Object> timesheetEntry : entrySet) {
-            Map<String, Object> timesheetData = (Map<String, Object>) timesheetEntry.getValue();
-            durationInSeconds += (Integer) timesheetData.get("duration");
-        }
-        log.info("Retrieved {} timesheet entries between {} and {} for a Duration of {} from TSheets.", entrySet.size(),
-                fromDate.format(simpleDisplayFormatter), toDate.format(simpleDisplayFormatter), Duration.ofSeconds(durationInSeconds));
-    }
-
+    @SneakyThrows(JsonProcessingException.class)
     private String formatQbdTimesheetEntries(QbdTimesheetEntries entries) {
-        try {
-            return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(entries);
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException(e.getMessage(), e);
-        }
+        return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(entries);
     }
 
-    private void processTimesheets(Map<String, Object> results) {
-
+    @SneakyThrows(JsonProcessingException.class)
+    private QbdTimesheetEntries xformToQbdTimesheetEntries(Map<String, Object> jsonMap) {
+        return transformer.transform(objectMapper.writeValueAsString(jsonMap));
     }
 }

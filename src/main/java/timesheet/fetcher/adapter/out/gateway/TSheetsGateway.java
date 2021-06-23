@@ -3,6 +3,8 @@ package timesheet.fetcher.adapter.out.gateway;
 import static io.micronaut.http.HttpRequest.GET;
 
 import java.net.URI;
+import java.time.Duration;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
 
@@ -10,6 +12,7 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.micronaut.http.HttpResponse;
@@ -18,6 +21,7 @@ import io.micronaut.http.client.annotation.Client;
 import io.micronaut.http.client.exceptions.HttpClientResponseException;
 import io.micronaut.http.uri.UriBuilder;
 import io.reactivex.Flowable;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import timesheet.fetcher.TsheetsConfiguration;
 import timesheet.fetcher.application.port.out.TSheetsPort;
@@ -105,9 +109,25 @@ public class TSheetsGateway implements TSheetsPort {
         }
         Optional<String> body = response.getBody(String.class);
         if (body.isPresent()) {
-            return body.get();
+            String payload = body.get();
+            logRetrievedTimeshets(payload, startDate, endDate);
+            return payload;
         }
         return "";
     }
 
+    @SneakyThrows(JsonProcessingException.class)
+    private void logRetrievedTimeshets(String payload, String startDate, String endDate) {
+        int durationInSeconds = 0;
+        JsonNode rootNode = objectMapper.readTree(payload);
+        JsonNode timesheets = rootNode.at("/results/timesheets");
+        Iterator<String> timesheetIds = timesheets.fieldNames();
+        while (timesheetIds.hasNext()) {
+            String timesheetId = timesheetIds.next();
+            JsonNode timesheet = timesheets.get(timesheetId);
+            durationInSeconds += timesheet.get("duration").asInt();
+        }
+        log.info("Retrieved {} timesheet entries between {} and {} for a Duration of {} from TSheets.", timesheets.size(),
+                startDate, endDate, Duration.ofSeconds(durationInSeconds));
+    }
 }
