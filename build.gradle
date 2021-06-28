@@ -49,6 +49,7 @@ dependencies {
     implementation "io.micronaut:micronaut-validation"
     implementation "io.micronaut:micronaut-http-client"
     implementation "io.micronaut.aws:micronaut-aws-sdk-v2"
+    implementation "io.micronaut.jms:micronaut-jms-sqs"
     implementation "software.amazon.awssdk:ssm:${awsSdkVersion}"
     compileOnly "org.projectlombok:lombok"
     runtimeOnly "ch.qos.logback:logback-classic"

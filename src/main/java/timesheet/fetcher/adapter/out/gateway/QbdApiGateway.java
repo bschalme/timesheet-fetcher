@@ -11,6 +11,7 @@ import javax.inject.Singleton;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import io.micronaut.context.annotation.Requires;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.client.RxHttpClient;
 import io.micronaut.http.client.annotation.Client;
@@ -24,6 +25,7 @@ import timesheet.fetcher.domain.QbdTimesheetEntries;
 
 @Singleton
 @Slf4j
+@Requires(env = "localhost")
 public class QbdApiGateway implements QbdApiPort {
     private final RxHttpClient httpClient;
     private final URI uri;
