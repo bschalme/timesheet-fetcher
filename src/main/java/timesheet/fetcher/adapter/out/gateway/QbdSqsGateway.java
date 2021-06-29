@@ -29,7 +29,6 @@ public class QbdSqsGateway implements QbdApiPort {
 
     @Override
     public void checkAvailability() {
-        GetQueueAttributesRequest request = new GetQueueAttributesRequest();
         GetQueueUrlResult queueUrlResult = sqsClient.getQueueUrl(timesheetQueueName);
         String queueUrl = queueUrlResult.getQueueUrl();
         if (isEmpty(queueUrl)) {
