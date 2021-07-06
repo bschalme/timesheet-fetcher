@@ -100,7 +100,7 @@ class TimesheetFetcherCommandTest {
 
         // When:
         fetcherCommand.dryRun = true;
-        fetcherCommand.run2();
+        fetcherCommand.run();
 
         // Then:
         verify(mockQbdApiPort).checkAvailability();
@@ -125,7 +125,7 @@ class TimesheetFetcherCommandTest {
                 .build())));
 
         // When:
-        fetcherCommand.run2();
+        fetcherCommand.run();
 
         // Then:
         verify(mockQbdApiPort).checkAvailability();
@@ -145,7 +145,7 @@ class TimesheetFetcherCommandTest {
         when(mockConfigPort.getTimesheetLastFetchedDate()).thenReturn(yesterday.format(ISO_DATE));
 
         // When:
-        fetcherCommand.run2();
+        fetcherCommand.run();
 
         // Then:
         verify(mockQbdApiPort).checkAvailability();
@@ -166,7 +166,7 @@ class TimesheetFetcherCommandTest {
                 .thenReturn(readFileToString(new File("src/test/resources/EmptyTSheets.json"), UTF_8));
 
         // When:
-        fetcherCommand.run2();
+        fetcherCommand.run();
 
         // Then:
         verify(mockQbdApiPort).checkAvailability();

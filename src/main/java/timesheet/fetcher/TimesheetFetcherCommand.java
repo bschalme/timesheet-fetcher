@@ -57,7 +57,7 @@ public class TimesheetFetcherCommand implements Runnable {
     }
 
     @SuppressWarnings("unchecked")
-    public void run() {
+    public void runOld() {
         if (verbose) {
             log.info("Begin fetching timesheets.");
         }
@@ -97,7 +97,7 @@ public class TimesheetFetcherCommand implements Runnable {
         }
     }
 
-    public void run2() {
+    public void run() {
         if (verbose) {
             log.info("Begin fetching timesheets.");
         }
