@@ -29,7 +29,7 @@ public class AwsParameterStoreConfig implements ConfigPort {
                 .build();
         GetParameterResponse parameterResponse = ssmClient.getParameter(parameterRequest);
         String timesheetLastFetchedDate = parameterResponse.parameter().value();
-        log.debug("timesheet-last-fetched-date is '{}'.", timesheetLastFetchedDate);
+        log.info("timesheet-last-fetched-date is '{}'.", timesheetLastFetchedDate);
         return timesheetLastFetchedDate;
     }
 
@@ -42,6 +42,6 @@ public class AwsParameterStoreConfig implements ConfigPort {
                 .overwrite(true)
                 .build();
         ssmClient.putParameter(parameterRequest);
-        log.debug("timesheet-last-fetched-date set to '{}'.", dateStr);
+        log.info("timesheet-last-fetched-date set to '{}'.", dateStr);
     }
 }
